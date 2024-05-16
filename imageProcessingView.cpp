@@ -6,6 +6,7 @@
 #include "imageProcessingDoc.h"
 #include "imageProcessingView.h"
 #include "_GlobalCommon.h"
+#include "GetPixelDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -149,9 +150,13 @@ void CimageProcessingView::OnImageprocessGetpixelvalue()
 {
 	if(pFileBuf == NULL) return;
 	/**/
+	GetPixelDlg dlg;
+	int x, y;
+	if (dlg.DoModal() == IDOK) {
+		x = dlg.m_nX;
+		y = dlg.m_nY;
+	}
 	//Add your code to choose the coordinate (x,y)
-	int x = 100;
-	int y = 100;
 	RGBQUAD rgb;
 	bool bGray;
 	GetPixel(pFileBuf,x,y,&rgb,&bGray);

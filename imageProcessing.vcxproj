@@ -184,6 +184,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GetPixelDlg.h" />
     <ClInclude Include="imageProcessing.h" />
     <ClInclude Include="imageProcessingDoc.h" />
     <ClInclude Include="imageProcessingView.h" />
@@ -193,6 +194,7 @@
     <ClInclude Include="_GlobalCommon.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="GetPixelDlg.cpp" />
     <ClCompile Include="imageProcessing.cpp" />
     <ClCompile Include="imageProcessingDoc.cpp" />
     <ClCompile Include="imageProcessingView.cpp" />

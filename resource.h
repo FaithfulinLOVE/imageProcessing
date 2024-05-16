@@ -2,9 +2,14 @@
 // Microsoft Visual C++ 生成的包含文件。
 // 供 imageProcessing.rc 使用
 //
+#define IDABORT2                        4
 #define IDD_ABOUTBOX                    100
 #define IDR_MAINFRAME                   128
 #define IDR_imageProcessingTYPE         130
+#define GET_PIXEL_DLG                   310
+#define PixelX                          1001
+#define PixelX2                         1002
+#define PixelY                          1002
 #define ID_IMAGEPROCESSING_OPENABMPFILE 32771
 #define ID_IMAGEPROCESSING_SAVETONEWBMP 32772
 #define ID_IMAGEPROCESSING_DISPLAYBMPFILEHEADER 32773
@@ -38,9 +43,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        310
+#define _APS_NEXT_RESOURCE_VALUE        312
 #define _APS_NEXT_COMMAND_VALUE         32799
-#define _APS_NEXT_CONTROL_VALUE         1000
+#define _APS_NEXT_CONTROL_VALUE         1002
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif

@@ -5,13 +5,16 @@
 #include "MainFrm.h"
 #include "imageProcessingDoc.h"
 #include "imageProcessingView.h"
+#include "GetPixelDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
+//这段和imageProcessView中的有什么区别？？
 BEGIN_MESSAGE_MAP(CimageProcessingApp, CWinApp)
 	ON_COMMAND(ID_APP_ABOUT, &CimageProcessingApp::OnAppAbout)
+	//ON_COMMAND(GET_PIXEL_DLG, &GetPixelDlg::Getpixelvalue)
 	// 基于文件的标准文档命令
 	ON_COMMAND(ID_FILE_NEW, &CWinApp::OnFileNew)
 	ON_COMMAND(ID_FILE_OPEN, &CWinApp::OnFileOpen)
