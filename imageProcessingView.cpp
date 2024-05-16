@@ -7,6 +7,7 @@
 #include "imageProcessingView.h"
 #include "_GlobalCommon.h"
 #include "GetPixelDlg.h"
+#include "SET_PIXEL_DLG.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -173,14 +174,19 @@ void CimageProcessingView::OnImageprocessSetpixelvalue()
 {
 	if(pFileBuf == NULL) return;
 	/**/
-	//Add your code to choose the coordinate (x,y)
-	int x = 100;
-	int y = 100;
+	SET_PIXEL_DLG dlg;
+	int x ;
+	int y ;
 	RGBQUAD rgb;
-	rgb.rgbReserved = 255;
-	rgb.rgbRed      = 255;
-	rgb.rgbGreen    = 255;
-	rgb.rgbBlue     = 255;
+	//Add your code to choose the coordinate (x,y)
+	if (dlg.DoModal() == IDOK) {
+		x = dlg.set_X;
+		y = dlg.set_Y;
+		rgb.rgbReserved = dlg.set_Res;
+		rgb.rgbRed = dlg.set_R;
+		rgb.rgbGreen = dlg.set_G;
+		rgb.rgbBlue = dlg.set_B;
+	}
 	SetPixel(pFileBuf,x,y,rgb);
 	Invalidate();
 	UpdateWindow();

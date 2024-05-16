@@ -190,6 +190,7 @@
     <ClInclude Include="imageProcessingView.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SET_PIXEL_DLG.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="_GlobalCommon.h" />
   </ItemGroup>
@@ -199,6 +200,7 @@
     <ClCompile Include="imageProcessingDoc.cpp" />
     <ClCompile Include="imageProcessingView.cpp" />
     <ClCompile Include="MainFrm.cpp" />
+    <ClCompile Include="SET_PIXEL_DLG.cpp" />
     <ClCompile Include="_GlobalCommon.cpp" />
   </ItemGroup>
   <ItemGroup>
