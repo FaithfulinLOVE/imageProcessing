@@ -143,6 +143,22 @@ void CimageProcessingView::OnImageprocessDisplaypalette()
 	else
 	{
 		//Here are your code
+		// 顶端显示一串颜色
+		CDC* pDC = GetDC();
+		for (int i = 0; i < num; i++)
+		{
+			CBrush brush(RGB(pallete[i].rgbRed, pallete[i].rgbGreen, pallete[i].rgbBlue));
+			pDC->SelectObject(&brush);
+			pDC->Rectangle(i * 20, 0, (i + 1) * 20, 20);
+		}
+		ReleaseDC(pDC);
+		//输出数据
+		CString strPaletteColors;
+		for (int i = 0; i < num; i++)
+		{
+			strPaletteColors.AppendFormat("Palette Color %d - RGB(%d, %d, %d)\n", i + 1, pallete[i].rgbRed, pallete[i].rgbGreen, pallete[i].rgbBlue);
+		}
+		AfxMessageBox(strPaletteColors);
 	}
 }
 
@@ -225,6 +241,7 @@ void CimageProcessingView::OnImageprocessBilateralfilter()
 //Histogram equalization
 void CimageProcessingView::OnImageprocessHistoequalization()
 {
+	
 }
 
 //Sharpening by gradient
