@@ -11,6 +11,7 @@
 #include "_GlobalCommon.h"
 #include "GetPixelDlg.h"
 #include "SET_PIXEL_DLG.h"
+#include "MedianFilterDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -171,7 +172,7 @@ void CimageProcessingView::OnImageprocessGetpixelvalue()
 	if(pFileBuf == NULL) return;
 	/**/
 	GetPixelDlg dlg;
-	int x, y;
+	int x=100, y=100;
 	if (dlg.DoModal() == IDOK) {
 		x = dlg.m_nX;
 		y = dlg.m_nY;
@@ -248,7 +249,11 @@ void CimageProcessingView::OnImageprocessMedianfilter()
 	memcpy(pNewImage, pFileBuf, width * height * (bpp / 8));
 
 	//设置中值滤波器的窗口大小
-	int windowSize = 3; //可以根据需要调整窗口大小
+	MedianFilterDlg dlg;
+	int windowSize = 3;
+	if (dlg.DoModal() == IDOK) {
+		windowSize = dlg.winSize;
+	}
 
 	/*if (isGrayscale) {
 		for (int y = 0; y < height; y++) {

@@ -45,6 +45,9 @@
     <ClInclude Include="SET_PIXEL_DLG.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="MedianFilterDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imageProcessing.cpp">
@@ -66,6 +69,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="SET_PIXEL_DLG.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MedianFilterDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
