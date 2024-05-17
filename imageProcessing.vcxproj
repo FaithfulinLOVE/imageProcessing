@@ -189,6 +189,7 @@
     <ClInclude Include="imageProcessing.h" />
     <ClInclude Include="imageProcessingDoc.h" />
     <ClInclude Include="imageProcessingView.h" />
+    <ClInclude Include="InterpolDlg.h" />
     <ClInclude Include="MainFrm.h" />
     <ClInclude Include="MedianFilterDlg.h" />
     <ClInclude Include="Resource.h" />
@@ -202,6 +203,7 @@
     <ClCompile Include="imageProcessing.cpp" />
     <ClCompile Include="imageProcessingDoc.cpp" />
     <ClCompile Include="imageProcessingView.cpp" />
+    <ClCompile Include="InterpolDlg.cpp" />
     <ClCompile Include="MainFrm.cpp" />
     <ClCompile Include="MedianFilterDlg.cpp" />
     <ClCompile Include="SET_PIXEL_DLG.cpp" />
@@ -211,6 +213,7 @@
     <ResourceCompile Include="imageProcessing.rc" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="resource.hm" />
     <None Include="res\imageProcessing.rc2" />
   </ItemGroup>
   <ItemGroup>

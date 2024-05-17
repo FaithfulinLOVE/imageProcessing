@@ -13,6 +13,7 @@
 #include "SET_PIXEL_DLG.h"
 #include "MedianFilterDlg.h"
 #include "GaussianFilterDlg.h"
+#include "InterpolDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -219,13 +220,24 @@ void CimageProcessingView::OnImageprocessInerpolation()
 	if(pFileBuf == NULL) return;
 	/**/
 	//Add your code to choose method (nearest or bilinear) and zoom factors
-	int newWidth  = 500;
+	InterpolDlg dlg;
+	int newWidth = 500;
 	int newHeight = 490;
-	char *pNewImage = ImageInterpolation(pFileBuf,newWidth,newHeight,0);
-	delete [] pFileBuf;
-	pFileBuf = pNewImage;
-	Invalidate();
-	UpdateWindow();
+	if (dlg.DoModal() == IDOK) {
+		newWidth = dlg.width;
+		newHeight = dlg.height;
+		char* pNewImage = NULL;
+		if (dlg.nearest) {
+			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 0);
+		}
+		else {
+			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 1);
+		}
+		delete[] pFileBuf;
+		pFileBuf = pNewImage;
+		Invalidate();
+		UpdateWindow();
+	}
 }
 
 /*

@@ -51,6 +51,9 @@
     <ClInclude Include="GaussianFilterDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="InterpolDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imageProcessing.cpp">
@@ -80,6 +83,9 @@
     <ClCompile Include="GaussianFilterDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="InterpolDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="imageProcessing.rc">
@@ -89,6 +95,9 @@
   <ItemGroup>
     <None Include="res\imageProcessing.rc2">
       <Filter>资源文件</Filter>
+    </None>
+    <None Include="resource.hm">
+      <Filter>头文件</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

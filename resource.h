@@ -10,6 +10,7 @@
 #define GET_PIXEL_DLG                   310
 #define IDD_DIALOG1                     312
 #define MED_FIL_DLG                     314
+#define INTERPOL_DLG                    318
 #define PixelX                          1001
 #define PixelY                          1002
 #define IDC_EDIT1                       1002
@@ -17,9 +18,14 @@
 #define MEDFIL_WIN_SIZE                 1003
 #define GUASSFIL_SIGMA                  1004
 #define IDC_EDIT3                       1005
+#define NEAREST                         1005
 #define IDC_EDIT4                       1006
+#define IDC_RADIO2                      1006
+#define DOUBLE_LINEAR                   1006
 #define IDC_EDIT5                       1007
+#define INTER_WIDTH                     1007
 #define IDC_EDIT6                       1008
+#define INTER_HEIGHT                    1008
 #define ID_IMAGEPROCESSING_OPENABMPFILE 32771
 #define ID_IMAGEPROCESSING_SAVETONEWBMP 32772
 #define ID_IMAGEPROCESSING_DISPLAYBMPFILEHEADER 32773
@@ -53,9 +59,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        318
+#define _APS_NEXT_RESOURCE_VALUE        320
 #define _APS_NEXT_COMMAND_VALUE         32799
-#define _APS_NEXT_CONTROL_VALUE         1005
+#define _APS_NEXT_CONTROL_VALUE         1009
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
