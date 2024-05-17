@@ -12,6 +12,7 @@
 #include "GetPixelDlg.h"
 #include "SET_PIXEL_DLG.h"
 #include "MedianFilterDlg.h"
+#include "GaussianFilterDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -227,9 +228,109 @@ void CimageProcessingView::OnImageprocessInerpolation()
 	UpdateWindow();
 }
 
-//Gaussian smoothing
+/*
+// 功能函数1：应用高斯滤波器
+double ApplyGaussianFilter(const std::vector<double>& values, const std::vector<double>& weights) {
+	if (values.size() != weights.size()) {
+		// 如果值和权重数组的大小不一致，返回0
+		return 0.0;
+	}
+
+	double result = 0.0;
+	for (size_t i = 0; i < values.size(); i++) {
+		result += values[i] * weights[i];
+	}
+
+	return result;
+}
+//功能函数2：计算高斯滤波的权重
+std::vector<double> GaussianWeights(double sigma, int kernelSize) {
+	std::vector<double> weights;
+	weights.reserve(kernelSize);
+
+	double sum = 0.0;
+	for (int i = 0; i < kernelSize; i++) {
+		int x = i - kernelSize / 2;
+		double weight = exp(-(x * x) / (2 * sigma * sigma));
+		weights.push_back(weight);
+		sum += weight;
+	}
+
+	// 归一化权重
+	for (int i = 0; i < kernelSize; i++) {
+		weights[i] /= sum;
+	}
+
+	return weights;
+}
+*/
+//Gaussian smoothing高斯滤波
 void CimageProcessingView::OnImageprocessGausssmooth()
 {
+	if (pFileBuf == NULL) return;
+
+	int width = GetImageWidth(pFileBuf);
+	int height = GetImageHeight(pFileBuf);
+	int bpp = GetColorBits(pFileBuf);
+
+	// 创建一个新的图像缓冲区用于存储高斯平滑后的图像
+	char* pNewImage = new char[width * height * (bpp / 8)];
+	memcpy(pNewImage, pFileBuf, width * height * (bpp / 8));
+
+	// 设置高斯平滑的参数
+	GaussianFilterDlg dlg;
+	double sigma = 1.0;
+	double kernelSize = 2 * sigma + 1;
+	if (dlg.DoModal() == IDOK) {
+		sigma = dlg.sigma;
+		kernelSize = 2 * sigma + 1;
+	}
+
+	// 对图像进行高斯平滑处理
+	double kernelRadius = kernelSize / 2;
+	double* kernel = new double[kernelSize];
+	double sum = 0.0;
+
+	// 生成高斯核
+	for (int i = 0; i < kernelSize; i++) {
+		double x = i - kernelRadius;
+		kernel[i] = exp(-(x * x) / (2 * sigma * sigma)) / (sqrt(2 * 3.14159265358979323846) * sigma);
+		sum += kernel[i];
+	}
+
+	// 归一化高斯核
+	for (int i = 0; i < kernelSize; i++) {
+		kernel[i] /= sum;
+	}
+
+	// 对图像进行高斯平滑处理
+	// 对图像进行高斯平滑处理
+	for (int y = 1; y < height - 1; y++) {
+		for (int x = 1; x < width - 1; x++) {
+			for (int c = 0; c < bpp / 8; c++) {
+				double sum = 0.0;
+				//double totalWeight = 0.0;	//归一化，防止图像饱和度变高
+				for (int j = -1; j <= 1; j++) {
+					for (int i = -1; i <= 1; i++) {
+						int index = ((y + j) * width + (x + i)) * (bpp / 8) + c;
+						double weight = exp(-(i * i + j * j) / (2 * sigma * sigma));
+						sum += pFileBuf[index] * weight;
+						//totalWeight += weight;
+					}
+				}
+				pNewImage[(y * width + x) * (bpp / 8) + c] = sum / (2 * 3.14159 * sigma * sigma);
+				//pNewImage[(y * width + x) * (bpp / 8) + c] = (char)(sum / totalWeight);
+			}
+		}
+	}
+
+
+	// 释放旧的图像缓冲区，使用新的高斯平滑处理后的图像数据
+	delete[] pFileBuf;
+	pFileBuf = pNewImage;
+
+	Invalidate();
+	UpdateWindow();
 }
 
 //Median filtering
