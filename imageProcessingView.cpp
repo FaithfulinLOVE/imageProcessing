@@ -1,6 +1,9 @@
 ﻿// imageProcessingView.cpp: CimageProcessingView 类的实现
 //
 #define _CRT_SECURE_NO_WARNINGS
+#include <vector>
+#include <algorithm>
+#include <cmath>
 #include "framework.h"
 #include "imageProcessing.h"
 #include "imageProcessingDoc.h"
@@ -231,6 +234,94 @@ void CimageProcessingView::OnImageprocessGausssmooth()
 //Median filtering
 void CimageProcessingView::OnImageprocessMedianfilter()
 {
+	if (pFileBuf == NULL) return;
+	/**/
+	int width = GetImageWidth(pFileBuf);
+	int height = GetImageHeight(pFileBuf);
+	int bpp = GetColorBits(pFileBuf);
+	
+	// Check if the image is grayscale
+	bool isGrayscale = (bpp == 8); // Assuming 8-bit grayscale image
+
+	//创建一个新的图像缓冲区用于存储中值滤波后的图像
+	char* pNewImage = new char[width * height * (bpp / 8)];
+	memcpy(pNewImage, pFileBuf, width * height * (bpp / 8));
+
+	//设置中值滤波器的窗口大小
+	int windowSize = 3; //可以根据需要调整窗口大小
+
+	/*if (isGrayscale) {
+		for (int y = 0; y < height; y++) {
+			for (int x = 0; x < width; x++) {
+				std::vector<char> windowValues;
+
+				// 构建窗口
+				for (int wy = -windowSize / 2; wy <= windowSize / 2; wy++) {
+					for (int wx = -windowSize / 2; wx <= windowSize / 2; wx++) {
+						int nx = std::max(0, std::min(width - 1, x + wx));
+						int ny = std::max(0, std::min(height - 1, y + wy));
+						windowValues.push_back(pFileBuf[ny * width + nx]);
+					}
+				}
+
+				// 对窗口内像素值进行排序
+				std::sort(windowValues.begin(), windowValues.end());
+
+				// 取中值作为当前像素的值
+				pNewImage[y * width + x] = windowValues[windowSize * windowSize / 2];
+			}
+		}
+
+		//释放旧的图像缓冲区，使用新的中值滤波处理后的图像数据
+		delete[] pFileBuf;
+		pFileBuf = pNewImage;
+
+		Invalidate();
+		UpdateWindow();
+		return;
+	}*/
+	//对图像进行中值滤波处理
+	for (int y = windowSize / 2; y < height - windowSize / 2; y++)
+	{
+		for (int x = windowSize / 2; x < width - windowSize / 2; x++)
+		{
+			std::vector<unsigned char> valuesR;
+			std::vector<unsigned char> valuesG;
+			std::vector<unsigned char> valuesB;
+
+			//获取窗口内像素值
+			for (int j = -windowSize / 2; j <= windowSize / 2; j++)
+			{
+				for (int i = -windowSize / 2; i <= windowSize / 2; i++)
+				{
+					int pixelIndex = ((y + j) * width + (x + i)) * (bpp / 8);
+					valuesR.push_back(pFileBuf[pixelIndex + 2]); //红色通道
+					valuesG.push_back(pFileBuf[pixelIndex + 1]); //绿色通道
+					valuesB.push_back(pFileBuf[pixelIndex]); //蓝色通道
+				}
+			}
+
+			//对窗口内像素值进行排序
+			std::sort(valuesR.begin(), valuesR.end());
+			std::sort(valuesG.begin(), valuesG.end());
+			std::sort(valuesB.begin(), valuesB.end());
+
+			//取中值作为新的像素值
+			int medianIndex = valuesR.size() / 2;
+			int pixelIndex = (y * width + x) * (bpp / 8);
+			pNewImage[pixelIndex + 2] = valuesR[medianIndex]; //红色通道
+			pNewImage[pixelIndex + 1] = valuesG[medianIndex]; //绿色通道
+			pNewImage[pixelIndex] = valuesB[medianIndex]; //蓝色通道
+		}
+	}
+
+
+	//释放旧的图像缓冲区，使用新的中值滤波处理后的图像数据
+	delete[] pFileBuf;
+	pFileBuf = pNewImage;
+
+	Invalidate();
+	UpdateWindow();
 }
 
 //Bilateral filtering
@@ -247,6 +338,7 @@ void CimageProcessingView::OnImageprocessHistoequalization()
 //Sharpening by gradient
 void CimageProcessingView::OnImageprocessSharpengrad()
 {
+
 }
 
 //Cany edge detection
