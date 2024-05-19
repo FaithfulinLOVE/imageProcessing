@@ -747,7 +747,7 @@ struct Pixel {
 // 创建一个队列来存储待拓展的像素点
 std::queue<Pixel> pixelQueue;
 
-//Canny edge detection		Limit:300x300!
+//Canny edge detection		
 void CimageProcessingView::OnImageprocessCannyedge()
 {
 	if (pFileBuf == NULL) return;
@@ -760,11 +760,21 @@ void CimageProcessingView::OnImageprocessCannyedge()
 	int height = GetImageHeight(pFileBuf);
 	int bpp = GetColorBits(pFileBuf);
 
+	int imageSize = width * height * sizeof(RGBQUAD);
+	char* pFileBuf2 = new char[width * height * bpp];
+
+	double th1 = 0.1, th2 = 0.3;
+
 	int sobelOperatorX[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
 	int sobelOperatorY[3][3] = { {1, 2, 1}, {0, 0, 0}, {-1, -2, -1} };
-	int gra_x[300][300] = { 0 };
-	int gra_y[300][300] = { 0 };
-	
+	// 动态分配 gra_x 和 gra_y 数组
+	int** gra_x = new int* [height+10];
+	int** gra_y = new int* [height+10];
+	for (int i = 0; i < height+10; i++) {
+		gra_x[i] = new int[width+10];
+		gra_y[i] = new int[width+10];
+	}
+
 	//2. 计算dx、dy 得到梯度
 	double max_grad = 0.0;
 	for (int y = 1; y < height - 1; y++) {
@@ -803,16 +813,20 @@ void CimageProcessingView::OnImageprocessCannyedge()
 			sprintf(buf, "threshold = %.2f", gra);
 			AfxMessageBox(buf);*/
 			
-			gra_x[x][y] = dx;
-			gra_y[x][y] = dy;
+			if (y >= 0 && y < height && x >= 0 && x < width) {
+				gra_x[y][x] = dx;
+				gra_y[y][x] = dy;
+			}
 		}
 	}
-
+	
 	//3. 得到梯度方向的两个像素点，比较，决定是否保留中心点s
 	for (int y = 1; y < height - 1; y++) {
 		for (int x = 1; x < width - 1; x++) {
 			
-			double angle = atan2(gra_x[x][y], gra_y[x][y]);
+			double angle;
+			if (gra_x[y][x] != 0 && gra_y[y][x] != 0) angle = atan2(gra_x[y][x], gra_y[y][x]);
+			else angle = 0;
 
 			int x1 = x + cos(angle);
 			int y1 = y + sin(angle);
@@ -820,24 +834,21 @@ void CimageProcessingView::OnImageprocessCannyedge()
 			int x2 = x - cos(angle);
 			int y2 = y - sin(angle);
 
-			double gra0 = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
-			double gra1 = sqrt(gra_x[x1][y1] * gra_x[x1][y1] + gra_y[x1][y1] * gra_y[x1][y1]);
-			double gra2 = sqrt(gra_x[x2][y2] * gra_x[x2][y2] + gra_y[x2][y2] * gra_y[x2][y2]);
+			double gra0 = sqrt(gra_x[y][x] * gra_x[y][x] + gra_y[y][x] * gra_y[y][x]);
+			double gra1 = sqrt(gra_x[y1][x1] * gra_x[y1][x1] + gra_y[y1][x1] * gra_y[y1][x1]);
+			double gra2 = sqrt(gra_x[y2][x2] * gra_x[y2][x2] + gra_y[y2][x2] * gra_y[y2][x2]);
 			if (x1 >= 0 && x1 < width && y1 >= 0 && y1 < height) {
-				if (gra0 < gra1) gra_x[x][y] = gra_y[x][y] = 0;
+				if (gra0 < gra1) gra_x[y][x] = gra_y[y][x] = 0;
 			}
 			if (x2 >= 0 && x2 < width && y2 >= 0 && y2 < height) {
-				if (gra0 < gra2) gra_x[x][y] = gra_y[x][y] = 0;
+				if (gra0 < gra2) gra_x[y][x] = gra_y[y][x] = 0;
 			}
 		}
 	}
 
 	//4. 得到图像2，读入阈值，对图像1和图像2分别作阈值处理
-	int imageSize = width * height * sizeof(RGBQUAD);
-	char* pFileBuf2 = new char[width * height * (bpp / 8)];
 	memcpy(pFileBuf2, pFileBuf, width * height * (bpp / 8));
 
-	double th1=0.1, th2=0.3;
 	CannyEdgeDlg dlg;
 	if (dlg.DoModal() == IDOK) {
 		th2 = dlg.th2;
@@ -849,8 +860,8 @@ void CimageProcessingView::OnImageprocessCannyedge()
 	//RGBQUAD rgb0 = { 0,0,0,0 };
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			double grad = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
-			if (grad/max_grad < th1) {
+			double grad = sqrt(gra_x[y][x] * gra_x[y][x] + gra_y[y][x] * gra_y[y][x]);
+			if (max_grad != 0 && grad/max_grad < th1) {
 				RGBQUAD rgb;
 				bool isGray;
 				long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
@@ -859,16 +870,15 @@ void CimageProcessingView::OnImageprocessCannyedge()
 			}
 		}
 	}
-
-	/*Invalidate();
+	Invalidate();
 	UpdateWindow();
-	AfxMessageBox("图像1");*/
-	
+	AfxMessageBox("图像1");
+
 	//图像2
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
-			double grad = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
-			if (grad/max_grad < th2) {
+			double grad = sqrt(gra_x[y][x] * gra_x[y][x] + gra_y[y][x] * gra_y[y][x]);
+			if (max_grad!=0 && grad/max_grad < th2) {
 				RGBQUAD rgb;
 				bool isGray;
 				long offset = GetPixel(pFileBuf2, x, y, &rgb, &isGray);
@@ -878,22 +888,38 @@ void CimageProcessingView::OnImageprocessCannyedge()
 		}
 	}
 
-	/*char* tmp = pFileBuf;
+	//释放内存（梯度）
+	for (int i = 0; i < height + 10; i++) {
+		delete[] gra_x[i];
+		delete[] gra_y[i];
+	}
+	delete[] gra_x;
+	delete[] gra_y;
+
+	char* tmp = pFileBuf;
 	pFileBuf = pFileBuf2;
 	Invalidate();
 	UpdateWindow();
 	AfxMessageBox("图像2");
-	pFileBuf = tmp;*/
+	pFileBuf = tmp;
 
 	//5. 边缘链接
-	bool checked[300][300] = {0};
+	// 动态分配 checked 数组
+	bool** checked = new bool* [height];
+	for (int i = 0; i < height; i++) {
+		checked[i] = new bool[width]; 
+		for (int j = 0; j < width; j++) {
+			checked[i][j] = false;
+		}
+	}
+
 	int stepx[8] = { -1,0,1,-1,1,-1,0,1 };
 	int stepy[8] = { -1,-1,-1,0,0,1,1,1 };
 	for (int y = 0; y < height; y++) {
 		for (int x = 0; x < width; x++) {
 			//已经拓展过
-			if (checked[x][y]) continue;
-			
+			if (checked[y][x]) continue;
+
 			//如果图2中是边缘点，开始拓展
 			RGBQUAD rgb2;
 			bool isGray;
@@ -917,26 +943,32 @@ void CimageProcessingView::OnImageprocessCannyedge()
 				int xx = currentPixel.x;
 				int yy = currentPixel.y;
 
-				checked[xx][yy] = true;
+				checked[yy][xx] = true;
 
 				//向八个方向拓展
 				for (int st = 0; st < 8; st++) {
 					int gox = xx + stepx[st];
 					int goy = yy + stepy[st];
-					if (checked[gox][goy]) continue;
+
+					if (gox<0 || goy<0 || gox>=width || goy>=height) continue;
+
+					if (checked[goy][gox]) continue;
 					
 					//如果它在图2中本身是边缘点那就不管了，之后会拓展的
 					RGBQUAD rgb2;
 					bool isGray;
-					GetPixel(pFileBuf, x, y, &rgb2, &isGray);
+					GetPixel(pFileBuf2, gox, goy, &rgb2, &isGray);
 					if (rgb2.rgbReserved != 0) continue;
 
 					//取出图1中的点值，如果不为0，说明需要拓展
 					RGBQUAD rgb1;
-					GetPixel(pFileBuf, x, y, &rgb1, &isGray);
+					GetPixel(pFileBuf, gox, goy, &rgb1, &isGray);
 					if (rgb1.rgbReserved == 0) continue;
 
 					//拓展！
+					/*char buf[50];
+					sprintf(buf, "(%d %d):%d", gox, goy, rgb1.rgbReserved);
+					AfxMessageBox(buf);*/
 					SetPixel(pFileBuf2, gox, goy, rgb1);
 					//增加入队代码,将gox、goy入队
 					Pixel newPixel = { gox, goy };
@@ -946,11 +978,18 @@ void CimageProcessingView::OnImageprocessCannyedge()
 		}
 	}
 
+	// 释放动态分配的数组
+	for (int i = 0; i < height; i++) {
+		delete[] checked[i];
+	}
+	delete[] checked;
+
 	//释放旧的图像缓冲区，使用新的图像数据
 	delete[] pFileBuf;
 	pFileBuf = pFileBuf2;
 	Invalidate();
 	UpdateWindow();
+	AfxMessageBox("完成");
 }
 
 //Otsu segmentation
