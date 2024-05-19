@@ -14,8 +14,8 @@ InterpolDlg::InterpolDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(INTERPOL_DLG, pParent)
 	, width(0)
 	, height(0)
-	, nearest(FALSE)
-	, double_linear(FALSE)
+	, nearest(1)
+	, double_linear(0)
 {
 
 }
@@ -57,18 +57,21 @@ BOOL InterpolDlg::OnInitDialog()
 
 void InterpolDlg::OnBnClickedLinear()
 {
-	CButton* pRadioButton = (CButton*)GetDlgItem(NEAREST);
-	pRadioButton->SetCheck(BST_UNCHECKED);
-	pRadioButton = (CButton*)GetDlgItem(DOUBLE_LINEAR);
+	CButton* pRadioButton = (CButton*)GetDlgItem(DOUBLE_LINEAR);
 	pRadioButton->SetCheck(BST_CHECKED);
+	pRadioButton = (CButton*)GetDlgItem(NEAREST);
+	pRadioButton->SetCheck(BST_UNCHECKED);
+	nearest = 1;
+	double_linear = 0;
 }
 
 
 void InterpolDlg::OnBnClickedNearest()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	CButton* pRadioButton = (CButton*)GetDlgItem(DOUBLE_LINEAR);
-	pRadioButton->SetCheck(BST_UNCHECKED);
-	pRadioButton = (CButton*)GetDlgItem(NEAREST);
+	CButton* pRadioButton = (CButton*)GetDlgItem(NEAREST);
 	pRadioButton->SetCheck(BST_CHECKED);
+	pRadioButton = (CButton*)GetDlgItem(DOUBLE_LINEAR);
+	pRadioButton->SetCheck(BST_UNCHECKED);
+	nearest = 0;
+	double_linear = 1;
 }

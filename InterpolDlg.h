@@ -24,8 +24,8 @@ protected:
 public:
 	int width;
 	int height;
-	BOOL nearest;
-	BOOL double_linear;
+	int nearest;
+	int double_linear;
 
 	//初始化
 	virtual BOOL OnInitDialog();

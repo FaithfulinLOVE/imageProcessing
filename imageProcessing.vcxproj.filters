@@ -54,6 +54,12 @@
     <ClInclude Include="InterpolDlg.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="BilateralfilterDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SharpenDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imageProcessing.cpp">
@@ -84,6 +90,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="InterpolDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="BilateralfilterDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SharpenDlg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

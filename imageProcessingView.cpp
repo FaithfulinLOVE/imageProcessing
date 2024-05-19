@@ -14,6 +14,8 @@
 #include "MedianFilterDlg.h"
 #include "GaussianFilterDlg.h"
 #include "InterpolDlg.h"
+#include "BilateralfilterDlg.h"
+#include "SharpenDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -227,11 +229,17 @@ void CimageProcessingView::OnImageprocessInerpolation()
 		newWidth = dlg.width;
 		newHeight = dlg.height;
 		char* pNewImage = NULL;
-		if (dlg.nearest) {
-			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 0);
+		if (dlg.nearest == -1) {
+			/*char buf[100];
+			sprintf(buf, "最邻近插值法 %d %d", dlg.nearest, dlg.double_linear);
+			AfxMessageBox(buf);*/
+			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 1);
 		}
 		else {
-			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 1);
+			/*char buf[100];
+			sprintf(buf, "双线性插值法 %d %d", dlg.nearest, dlg.double_linear);
+			AfxMessageBox(buf);*/
+			pNewImage = ImageInterpolation(pFileBuf, newWidth, newHeight, 0);
 		}
 		delete[] pFileBuf;
 		pFileBuf = pNewImage;
@@ -281,71 +289,76 @@ void CimageProcessingView::OnImageprocessGausssmooth()
 {
 	if (pFileBuf == NULL) return;
 
-	int width = GetImageWidth(pFileBuf);
-	int height = GetImageHeight(pFileBuf);
-	int bpp = GetColorBits(pFileBuf);
+	// 获取文件头和图像信息
+	BITMAPFILEHEADER* pFileHeader = (BITMAPFILEHEADER*)pFileBuf;
+	BITMAPINFOHEADER* pDIBInfo = (BITMAPINFOHEADER*)(pFileBuf + sizeof(BITMAPFILEHEADER));
+	int width = pDIBInfo->biWidth;
+	int height = abs(pDIBInfo->biHeight);
+	int colorBits = pDIBInfo->biBitCount;
 
-	// 创建一个新的图像缓冲区用于存储高斯平滑后的图像
-	char* pNewImage = new char[width * height * (bpp / 8)];
-	memcpy(pNewImage, pFileBuf, width * height * (bpp / 8));
+	// 确定高斯核的参数
+	int kernelSize = 5;  // 常见的大小
+	double sigma = 1.0;  // 标准差
 
-	// 设置高斯平滑的参数
 	GaussianFilterDlg dlg;
-	double sigma = 1.0;
-	double kernelSize = 2 * sigma + 1;
 	if (dlg.DoModal() == IDOK) {
 		sigma = dlg.sigma;
-		kernelSize = 2 * sigma + 1;
 	}
-
-	// 对图像进行高斯平滑处理
-	double kernelRadius = kernelSize / 2;
-	double* kernel = new double[kernelSize];
+	// 创建高斯核
+	std::vector<std::vector<double>> kernel(kernelSize, std::vector<double>(kernelSize));
 	double sum = 0.0;
-
-	// 生成高斯核
+	int kHalf = kernelSize / 2;
 	for (int i = 0; i < kernelSize; i++) {
-		double x = i - kernelRadius;
-		kernel[i] = exp(-(x * x) / (2 * sigma * sigma)) / (sqrt(2 * 3.14159265358979323846) * sigma);
-		sum += kernel[i];
+		for (int j = 0; j < kernelSize; j++) {
+			double x = i - kHalf;
+			double y = j - kHalf;
+			kernel[i][j] = exp(-(x * x + y * y) / (2 * sigma * sigma));
+			sum += kernel[i][j];
+		}
 	}
 
 	// 归一化高斯核
 	for (int i = 0; i < kernelSize; i++) {
-		kernel[i] /= sum;
-	}
-
-	// 对图像进行高斯平滑处理
-	// 对图像进行高斯平滑处理
-	for (int y = 1; y < height - 1; y++) {
-		for (int x = 1; x < width - 1; x++) {
-			for (int c = 0; c < bpp / 8; c++) {
-				double sum = 0.0;
-				//double totalWeight = 0.0;	//归一化，防止图像饱和度变高
-				for (int j = -1; j <= 1; j++) {
-					for (int i = -1; i <= 1; i++) {
-						int index = ((y + j) * width + (x + i)) * (bpp / 8) + c;
-						double weight = exp(-(i * i + j * j) / (2 * sigma * sigma));
-						sum += pFileBuf[index] * weight;
-						//totalWeight += weight;
-					}
-				}
-				pNewImage[(y * width + x) * (bpp / 8) + c] = sum / (2 * 3.14159 * sigma * sigma);
-				//pNewImage[(y * width + x) * (bpp / 8) + c] = (char)(sum / totalWeight);
-			}
+		for (int j = 0; j < kernelSize; j++) {
+			kernel[i][j] /= sum;
 		}
 	}
 
+	// 创建新的图像缓冲区
+	char* pNewBmpFileBuf = new char[pFileHeader->bfSize];
+	memcpy(pNewBmpFileBuf, pFileBuf, pFileHeader->bfSize);
+
+	// 应用高斯平滑
+	for (int y = kHalf; y < height - kHalf; y++) {
+		for (int x = kHalf; x < width - kHalf; x++) {
+			double newR = 0.0, newG = 0.0, newB = 0.0;
+			for (int dy = -kHalf; dy <= kHalf; dy++) {
+				for (int dx = -kHalf; dx <= kHalf; dx++) {
+					RGBQUAD rgb;
+					GetPixel(pFileBuf, x + dx, y + dy, &rgb);
+					newB += rgb.rgbBlue * kernel[dy + kHalf][dx + kHalf];
+					newG += rgb.rgbGreen * kernel[dy + kHalf][dx + kHalf];
+					newR += rgb.rgbRed * kernel[dy + kHalf][dx + kHalf];
+				}
+			}
+			RGBQUAD newRgb = {
+				(BYTE)min(max((int)newB, 0), 255),
+				(BYTE)min(max((int)newG, 0), 255),
+				(BYTE)min(max((int)newR, 0), 255)
+			};
+			SetPixel(pNewBmpFileBuf, x, y, newRgb);
+		}
+	}
 
 	// 释放旧的图像缓冲区，使用新的高斯平滑处理后的图像数据
 	delete[] pFileBuf;
-	pFileBuf = pNewImage;
+	pFileBuf = pNewBmpFileBuf;
 
 	Invalidate();
 	UpdateWindow();
 }
 
-//Median filtering
+//Median filtering 中值滤波
 void CimageProcessingView::OnImageprocessMedianfilter()
 {
 	if (pFileBuf == NULL) return;
@@ -442,29 +455,357 @@ void CimageProcessingView::OnImageprocessMedianfilter()
 	UpdateWindow();
 }
 
+
+// 辅助函数：计算高斯权重
+float GaussianWeight(float distance, float sigma) {
+	return exp(-(distance * distance) / (2 * sigma * sigma));
+}
 //Bilateral filtering
 void CimageProcessingView::OnImageprocessBilateralfilter()
 {
+	if (pFileBuf == NULL) return;
+
+	BITMAPFILEHEADER* pFileHeader = (BITMAPFILEHEADER*)pFileBuf;
+	BITMAPINFOHEADER* pDIBInfo = (BITMAPINFOHEADER*)(pFileBuf + sizeof(BITMAPFILEHEADER));
+	int orgWidth = pDIBInfo->biWidth;
+	int orgHeight = abs(pDIBInfo->biHeight);
+
+	char* pNewBmpFileBuf = new char[pFileHeader->bfSize];
+	memcpy(pNewBmpFileBuf, pFileBuf, pFileHeader->bfSize);
+
+	// Bilateral filtering parameters
+	float spatialSigma = 2.0f;  // 空间标准差
+	float intensitySigma = 50.0f; // 灰度值差异标准差
+	int filterSize = 5; // 滤波器大小
+
+	BilateralfilterDlg dlg;
+	if (dlg.DoModal() == IDOK) {
+		spatialSigma = dlg.sigma_d;
+		intensitySigma = dlg.sigma_R;
+	}
+
+	// 对每个像素应用双边滤波
+	for (int y = 0; y < orgHeight; y++) {
+		for (int x = 0; x < orgWidth; x++) {
+			float filteredValue = 0.0f;
+			float sumWeights = 0.0f;
+
+			for (int j = -filterSize / 2; j <= filterSize / 2; j++) {
+				for (int i = -filterSize / 2; i <= filterSize / 2; i++) {
+					// 获取当前像素的空间距离
+					float spatialDist = sqrt(i * i + j * j);
+
+					// 获取当前像素的灰度值差异
+					RGBQUAD currentPixel, neighborPixel;
+					GetPixel(pFileBuf, x, y, &currentPixel);
+					GetPixel(pFileBuf, x + i, y + j, &neighborPixel);
+					float intensityDist = abs(currentPixel.rgbBlue - neighborPixel.rgbBlue);
+
+					// 计算空间权重和灰度值权重
+					float spatialWeight = GaussianWeight(spatialDist, spatialSigma);
+					float intensityWeight = GaussianWeight(intensityDist, intensitySigma);
+
+					// 计算总权重
+					float weight = spatialWeight * intensityWeight;
+
+					// 更新滤波后的像素值和权重和
+					filteredValue += neighborPixel.rgbBlue * weight;
+					sumWeights += weight;
+				}
+			}
+
+			// 计算最终的像素值
+			filteredValue /= sumWeights;
+
+			// 将结果限制在[0, 255]范围内
+			//filteredValue = std::max(filteredValue, 0.0f);
+			//filteredValue = std::min(filteredValue, 255.0f);
+
+			// 更新图像数据
+			RGBQUAD filteredPixel;
+			filteredPixel.rgbBlue = filteredValue;
+			filteredPixel.rgbGreen = filteredValue;
+			filteredPixel.rgbRed = filteredValue;
+			SetPixel(pNewBmpFileBuf, x, y, filteredPixel);
+		}
+	}
+
+	// 更新图像数据
+	delete[] pFileBuf;
+	pFileBuf = pNewBmpFileBuf;
+
+	Invalidate();
+	UpdateWindow();
 }
 
-//Histogram equalization
+//Histogram equalization 直方图均衡化
 void CimageProcessingView::OnImageprocessHistoequalization()
 {
-	
+	if (pFileBuf == NULL) return;
+	//if (GetColorBits(pFileBuf) != 8) return;//只处理灰度图像
+
+	int width = GetImageWidth(pFileBuf);
+	int height = GetImageHeight(pFileBuf);
+	int bpp = GetColorBits(pFileBuf);
+
+	//1. 遍历像素点，统计每个灰度值的像素点个数
+	int grayScale[300] = { 0 };
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			RGBQUAD rgb;
+			bool isGray;
+			long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
+			if (offset >= 0 && isGray) {
+				int grayValue = rgb.rgbRed;	//三个通道值相等
+				grayScale[grayValue]++;
+			}
+		}
+	}
+	//2. 得到直方图，计算累计直方图
+	int totNum = height * width;//像素点个数
+	double his[300] = {0};
+	for (int i = 0; i <= 255; i++) his[i] = (double)grayScale[i] / totNum;//原始直方图
+	for (int i = 1; i <= 255; i++) his[i] += his[i-1];//累计直方图
+
+	//3. 计算旧灰度值i对应的新灰度值newScale[i]
+	int newScale[300] = { 0 };
+	for (int i = 0; i <= 255; i++) newScale[i] = his[i] * 255;
+
+	//4, 更新像素点并输出
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			RGBQUAD rgb;
+			bool isGray;
+			long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
+			rgb.rgbReserved = newScale[rgb.rgbReserved];
+			SetPixel(pFileBuf, x, y, rgb);
+		}
+	}
+
+	Invalidate();
+	UpdateWindow();
 }
 
 //Sharpening by gradient
-void CimageProcessingView::OnImageprocessSharpengrad()
-{
+//实现基于梯度的图像锐化，所需参数从对话框中获取，将锐化结果显示出来。
+void CimageProcessingView::OnImageprocessSharpengrad() {
+	if (pFileBuf == NULL) return;
 
+	BITMAPFILEHEADER* pFileHeader = (BITMAPFILEHEADER*)pFileBuf;
+	BITMAPINFOHEADER* pDIBInfo = (BITMAPINFOHEADER*)(pFileBuf + sizeof(BITMAPFILEHEADER));
+	int orgWidth = pDIBInfo->biWidth;
+	int orgHeight = abs(pDIBInfo->biHeight);
+	int colorBits = pDIBInfo->biBitCount;
+
+	int mask[3][3] = { { -1, -1, -1 }, { -1, 8, -1 }, { -1, -1, -1 } }; //定义锐化卷积核
+
+	char* pNewBmpFileBuf = new char[pFileHeader->bfSize];
+	char* pResultBmpFileBuf = new char[pFileHeader->bfSize];
+	memcpy(pNewBmpFileBuf, pFileBuf, pFileHeader->bfSize);
+	memcpy(pResultBmpFileBuf, pFileBuf, pFileHeader->bfSize);
+
+	//input parameters
+	SharpenDlg dlg;
+	double k1 = 1, k2 = 1;
+	if (dlg.DoModal() == IDOK) {
+		k1 = dlg.k1;
+		k2 = dlg.k2;
+	}
+
+	for (int y = 1; y < orgHeight - 1; y++) {
+		for (int x = 1; x < orgWidth - 1; x++) {
+			RGBQUAD rgb;
+			GetPixel(pFileBuf, x, y, &rgb);
+
+			int sumR = 0, sumG = 0, sumB = 0;
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+					RGBQUAD pixel;
+					GetPixel(pFileBuf, x + dx, y + dy, &pixel);
+
+					sumR += mask[dy + 1][dx + 1] * pixel.rgbRed;
+					sumG += mask[dy + 1][dx + 1] * pixel.rgbGreen;
+					sumB += mask[dy + 1][dx + 1] * pixel.rgbBlue;
+				}
+			}
+
+			sumR = min(max(sumR, 0), 255);
+			sumG = min(max(sumG, 0), 255);
+			sumB = min(max(sumB, 0), 255);
+
+			rgb.rgbRed = sumR;
+			rgb.rgbGreen = sumG;
+			rgb.rgbBlue = sumB;
+
+			SetPixel(pNewBmpFileBuf, x, y, rgb);
+
+			// 将锐化前和锐化后的像素相加
+			RGBQUAD originalRgb;
+			GetPixel(pResultBmpFileBuf, x, y, &originalRgb);
+			rgb.rgbRed = min(max(k2*rgb.rgbRed + k1*originalRgb.rgbRed, 0), 255);
+			rgb.rgbGreen = min(max(k2*rgb.rgbGreen + k1*originalRgb.rgbGreen, 0), 255);
+			rgb.rgbBlue = min(max(k2*rgb.rgbBlue + k1*originalRgb.rgbBlue, 0), 255);
+
+			SetPixel(pResultBmpFileBuf, x, y, rgb);
+		}
+	}
+
+	delete[] pFileBuf;
+	pFileBuf = pResultBmpFileBuf;
+
+	delete[] pNewBmpFileBuf;
+
+	Invalidate();
+	UpdateWindow();
 }
 
-//Cany edge detection
+//Canny edge detection
 void CimageProcessingView::OnImageprocessCannyedge()
 {
+	if (pFileBuf == NULL) return;
+
+	//获取图像宽度和高度
+	int width = GetImageWidth(pFileBuf);
+	int height = GetImageHeight(pFileBuf);
+
+	//获取像素数据指针
+	char* imageData = GetDIBImageData(pFileBuf);
+
+	//灰度化处理
+	char* grayImageData = new char[width * height];
+	for (int i = 0; i < width * height; i++) {
+		// 假设这里是简单的灰度化方法，将RGB值取平均作为灰度值
+		if (3 * i + 2 < width * height) { // 确保索引不会超出范围
+			// 假设这里是简单的灰度化方法，将RGB值取平均作为灰度值
+			grayImageData[i] = (imageData[3 * i] + imageData[3 * i + 1] + imageData[3 * i + 2]) / 3;
+		}
+		else {
+			// 处理越界情况，可以选择跳过该像素或者进行其他处理
+			// 这里简单地将灰度值设为0
+			grayImageData[i] = 0;
+		}
+	}
+
+	//Canny边缘检测处理
+	char* pNewImage = new char[width * height]; // 创建新的图像缓冲区
+
+	// Step 1: Compute gradient intensity and direction
+	float* gradientDirections = new float[width * height];
+	float* gradientMagnitudes = new float[width * height];
+	for (int i = 1; i < width - 1; i++) {
+		for (int j = 1; j < height - 1; j++) {
+			int dx = grayImageData[(j + 1) * width + i] - grayImageData[(j - 1) * width + i];
+			int dy = grayImageData[j * width + i + 1] - grayImageData[j * width + i - 1];
+			gradientMagnitudes[j * width + i] = sqrt(dx * dx + dy * dy);
+			gradientDirections[j * width + i] = atan2(dy, dx) * 180.0 / 3.141592653589793;
+		}
+	}
+
+	// Step 2: Non-maximum suppression
+	// 可以实现非极大值抑制来细化边缘
+
+	// Step 3: Double thresholding
+	int lowThreshold = 50;
+	int highThreshold = 150;
+	for (int i = 0; i < width * height; i++) {
+		if (gradientMagnitudes[i] < lowThreshold) {//非边缘
+			pNewImage[i] = 0;
+		}
+		else if (gradientMagnitudes[i] > highThreshold) {//强边缘
+			pNewImage[i] = 255;
+		}
+		else {//弱边缘
+			pNewImage[i] = 200;
+			// 如果在两个阈值之间，根据连接性判断是否为边缘
+			// 这里可以实现双阈值处理
+		}
+	}
+
+	// Step 4: Edge tracking by hysteresis
+	// 可以实现边缘跟踪来连接边缘
+	for (int i = 1; i < width - 1; i++) {
+		for (int j = 1; j < height - 1; j++) {
+			if (pNewImage[j * width + i] == 255) {
+				if (pNewImage[(j - 1) * width + i - 1] == 0 || pNewImage[(j - 1) * width + i] == 0 || pNewImage[(j - 1) * width + i + 1] == 0 ||
+					pNewImage[j * width + i - 1] == 0 || pNewImage[j * width + i + 1] == 0 ||
+					pNewImage[(j + 1) * width + i - 1] == 0 || pNewImage[(j + 1) * width + i] == 0 || pNewImage[(j + 1) * width + i + 1] == 0) {
+					pNewImage[j * width + i] = 0;
+				}
+			}
+		}
+}
+
+	// 释放动态分配的内存
+	delete[] grayImageData;
+	delete[] gradientDirections;
+	delete[] gradientMagnitudes;
+
+	//释放旧的图像缓冲区，使用新的中值滤波处理后的图像数据
+	delete[] pFileBuf;
+	pFileBuf = pNewImage;
+
+	Invalidate();
+	UpdateWindow();
 }
 
 //Otsu segmentation
 void CimageProcessingView::OnImageprocessOtsusegment()
 {
+	if (pFileBuf == NULL) return;
+
+	int width = GetImageWidth(pFileBuf);
+	int height = GetImageHeight(pFileBuf);
+	int bpp = GetColorBits(pFileBuf);
+	//if (bpp != 8) return;//只处理灰度图像
+	double threshold = 0.0;
+	double average = 0.0;
+	double variance = 0.0;
+
+	//1. 遍历像素点，统计每个灰度值的像素点个数
+	int grayScale[300] = { 0 };
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			RGBQUAD rgb;
+			bool isGray;
+			long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
+			if (offset >= 0 && isGray) {
+				int grayValue = rgb.rgbRed;	//三个通道值相等
+				grayScale[grayValue]++;
+			}
+		}
+	}
+
+	//2. 得到灰度直方图
+	int totNum = height * width;//像素点个数
+	double his[300] = { 0 };
+	for (int i = 0; i <= 255; i++) his[i] = (double)grayScale[i] / totNum;//原始直方图
+
+	//3.计算灰度图像的平均值和方差
+	for (int i = 0; i <= 255; i++) average += i * his[i];
+	for (int i = 0; i <= 255; i++) variance += (i - average) * (i - average) * his[i];
+
+	//4.计算类方差阈值
+	double k = 0.3; // 系数 k，再调整？
+	threshold = average + k * sqrt(variance);
+
+
+	//5. 遍历像素点，根据阈值更新像素点为极值
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			RGBQUAD rgb;
+			bool isGray;
+			long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
+			if (rgb.rgbRed > threshold)	rgb.rgbReserved = 255;
+			else						rgb.rgbReserved = 0;
+			SetPixel(pFileBuf, x, y, rgb);
+		}
+	}
+
+	//输出阈值（弹窗）和处理后图片
+	Invalidate();
+	UpdateWindow();
+
+	char buf[100];
+	sprintf(buf, "threshold = %f", threshold);
+	AfxMessageBox(buf);
 }
