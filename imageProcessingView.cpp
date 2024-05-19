@@ -480,10 +480,13 @@ void CimageProcessingView::OnImageprocessMedianfilter()
 float GaussianWeight(float distance, float sigma) {
 	return exp(-(distance * distance) / (2 * sigma * sigma));
 }
-//Bilateral filtering
+//Bilateral filtering 双边滤波
 void CimageProcessingView::OnImageprocessBilateralfilter()
 {
 	if (pFileBuf == NULL) return;
+
+	int bpp = GetColorBits(pFileBuf);
+	bool isGray = (bpp == 8);
 
 	BITMAPFILEHEADER* pFileHeader = (BITMAPFILEHEADER*)pFileBuf;
 	BITMAPINFOHEADER* pDIBInfo = (BITMAPINFOHEADER*)(pFileBuf + sizeof(BITMAPFILEHEADER));
@@ -507,7 +510,10 @@ void CimageProcessingView::OnImageprocessBilateralfilter()
 	// 对每个像素应用双边滤波
 	for (int y = 0; y < orgHeight; y++) {
 		for (int x = 0; x < orgWidth; x++) {
-			float filteredValue = 0.0f;
+			float filteredValueR = 0.0f;//彩色
+			float filteredValueG = 0.0f;
+			float filteredValueB = 0.0f;
+			float filteredValue = 0.0f;	//灰度
 			float sumWeights = 0.0f;
 
 			for (int j = -filterSize / 2; j <= filterSize / 2; j++) {
@@ -515,42 +521,96 @@ void CimageProcessingView::OnImageprocessBilateralfilter()
 					// 获取当前像素的空间距离
 					float spatialDist = sqrt(i * i + j * j);
 
-					// 获取当前像素的灰度值差异
-					RGBQUAD currentPixel, neighborPixel;
-					GetPixel(pFileBuf, x, y, &currentPixel);
-					GetPixel(pFileBuf, x + i, y + j, &neighborPixel);
-					float intensityDist = abs(currentPixel.rgbBlue - neighborPixel.rgbBlue);
+					// 若为灰度图像
+					if (bpp == 8) {
+						// 获取当前像素的灰度值差异
+						RGBQUAD currentPixel, neighborPixel;
+						GetPixel(pFileBuf, x, y, &currentPixel);
+						GetPixel(pFileBuf, x + i, y + j, &neighborPixel);
+						float intensityDist = abs(currentPixel.rgbBlue - neighborPixel.rgbBlue);
 
-					// 计算空间权重和灰度值权重
-					float spatialWeight = GaussianWeight(spatialDist, spatialSigma);
-					float intensityWeight = GaussianWeight(intensityDist, intensitySigma);
+						// 计算空间权重和灰度值权重
+						float spatialWeight = GaussianWeight(spatialDist, spatialSigma);
+						float intensityWeight = GaussianWeight(intensityDist, intensitySigma);
 
-					// 计算总权重
-					float weight = spatialWeight * intensityWeight;
+						// 计算总权重
+						float weight = spatialWeight * intensityWeight;
 
-					// 更新滤波后的像素值和权重和
-					filteredValue += neighborPixel.rgbBlue * weight;
-					sumWeights += weight;
+						// 更新滤波后的像素值和权重和
+						filteredValue += neighborPixel.rgbBlue * weight;
+						sumWeights += weight;
+					}
+					else {
+						//若为彩色图像
+						// 获取当前像素的颜色值差异（三个通道）
+						RGBQUAD currentPixel, neighborPixel;
+						GetPixel(pFileBuf, x, y, &currentPixel);
+						GetPixel(pFileBuf, x + i, y + j, &neighborPixel);
+						float intensityDistR = abs(currentPixel.rgbRed - neighborPixel.rgbRed);
+						float intensityDistG = abs(currentPixel.rgbGreen - neighborPixel.rgbGreen);
+						float intensityDistB = abs(currentPixel.rgbBlue - neighborPixel.rgbBlue);
+
+						// 计算空间权重和颜色值权重（三个通道分别计算）
+						float spatialWeight = GaussianWeight(spatialDist, spatialSigma);
+						float intensityWeightR = GaussianWeight(intensityDistR, intensitySigma);
+						float intensityWeightG = GaussianWeight(intensityDistG, intensitySigma);
+						float intensityWeightB = GaussianWeight(intensityDistB, intensitySigma);
+
+						// 计算总权重
+						float weight = spatialWeight * intensityWeightR * intensityWeightG * intensityWeightB;
+
+						// 更新滤波后的像素值和权重和（三个通道分别计算）
+						filteredValueR += neighborPixel.rgbRed * weight;
+						filteredValueG += neighborPixel.rgbGreen * weight;
+						filteredValueB += neighborPixel.rgbBlue * weight;
+						sumWeights += weight;
+					}
+					
+					
 				}
 			}
 
 			// 计算最终的像素值
-			filteredValue /= sumWeights;
+			if (bpp == 8) {
+				filteredValue /= sumWeights;
 
-			// 将结果限制在[0, 255]范围内
-			//filteredValue = std::max(filteredValue, 0.0f);
-			//filteredValue = std::min(filteredValue, 255.0f);
+				// 将结果限制在[0, 255]范围内
+				filteredValue = max(filteredValue, 0.0f);
+				filteredValue = min(filteredValue, 255.0f);
 
-			// 更新图像数据
-			RGBQUAD filteredPixel;
-			filteredPixel.rgbBlue = filteredValue;
-			filteredPixel.rgbGreen = filteredValue;
-			filteredPixel.rgbRed = filteredValue;
-			SetPixel(pNewBmpFileBuf, x, y, filteredPixel);
+				RGBQUAD filteredPixel;
+				filteredPixel.rgbBlue = filteredValue;
+				filteredPixel.rgbGreen = filteredValue;
+				filteredPixel.rgbRed = filteredValue;
+				filteredPixel.rgbReserved = filteredValue;
+				SetPixel(pNewBmpFileBuf, x, y, filteredPixel);
+			}
+			else {
+				// 彩色图像三个通道分别计算）
+				filteredValueR /= sumWeights;
+				filteredValueG /= sumWeights;
+				filteredValueB /= sumWeights;
+
+				// 将结果限制在[0, 255]范围内
+				filteredValueR = max(filteredValueR, 0.0f);
+				filteredValueR = min(filteredValueR, 255.0f);
+				filteredValueG = max(filteredValueG, 0.0f);
+				filteredValueG = min(filteredValueG, 255.0f);
+				filteredValueB = max(filteredValueB, 0.0f);
+				filteredValueB = min(filteredValueB, 255.0f);
+
+				// 更新图像数据（三个通道分别处理）
+				RGBQUAD filteredPixel;
+				filteredPixel.rgbRed = filteredValueR;
+				filteredPixel.rgbGreen = filteredValueG;
+				filteredPixel.rgbBlue = filteredValueB;
+				filteredPixel.rgbReserved = 255; // 保留通道设为255
+				SetPixel(pNewBmpFileBuf, x, y, filteredPixel);
+			}
 		}
 	}
 
-	// 更新图像数据
+	// 更新输出
 	delete[] pFileBuf;
 	pFileBuf = pNewBmpFileBuf;
 
@@ -684,7 +744,6 @@ struct Pixel {
 	int x;
 	int y;
 };
-
 // 创建一个队列来存储待拓展的像素点
 std::queue<Pixel> pixelQueue;
 
