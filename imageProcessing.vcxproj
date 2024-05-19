@@ -184,6 +184,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BilateralfilterDlg.h" />
+    <ClInclude Include="CannyEdgeDlg.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="GaussianFilterDlg.h" />
     <ClInclude Include="GetPixelDlg.h" />
@@ -201,6 +202,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BilateralfilterDlg.cpp" />
+    <ClCompile Include="CannyEdgeDlg.cpp" />
     <ClCompile Include="GaussianFilterDlg.cpp" />
     <ClCompile Include="GetPixelDlg.cpp" />
     <ClCompile Include="imageProcessing.cpp" />

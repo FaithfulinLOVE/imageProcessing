@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <queue>
 #include "framework.h"
 #include "imageProcessing.h"
 #include "imageProcessingDoc.h"
@@ -16,6 +17,7 @@
 #include "InterpolDlg.h"
 #include "BilateralfilterDlg.h"
 #include "SharpenDlg.h"
+#include "CannyEdgeDlg.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -294,7 +296,10 @@ void CimageProcessingView::OnImageprocessGausssmooth()
 	BITMAPINFOHEADER* pDIBInfo = (BITMAPINFOHEADER*)(pFileBuf + sizeof(BITMAPFILEHEADER));
 	int width = pDIBInfo->biWidth;
 	int height = abs(pDIBInfo->biHeight);
+	int bpp = GetColorBits(pFileBuf);
 	int colorBits = pDIBInfo->biBitCount;
+	bool isGray = (bpp == 8);
+	//if (isGray) AfxMessageBox("isGray!");
 
 	// 确定高斯核的参数
 	int kernelSize = 5;  // 常见的大小
@@ -331,22 +336,37 @@ void CimageProcessingView::OnImageprocessGausssmooth()
 	// 应用高斯平滑
 	for (int y = kHalf; y < height - kHalf; y++) {
 		for (int x = kHalf; x < width - kHalf; x++) {
-			double newR = 0.0, newG = 0.0, newB = 0.0;
+			double newR = 0.0, newG = 0.0, newB = 0.0, newValue = 0.0;
 			for (int dy = -kHalf; dy <= kHalf; dy++) {
 				for (int dx = -kHalf; dx <= kHalf; dx++) {
 					RGBQUAD rgb;
 					GetPixel(pFileBuf, x + dx, y + dy, &rgb);
-					newB += rgb.rgbBlue * kernel[dy + kHalf][dx + kHalf];
-					newG += rgb.rgbGreen * kernel[dy + kHalf][dx + kHalf];
-					newR += rgb.rgbRed * kernel[dy + kHalf][dx + kHalf];
+					if (isGray) {
+						newValue += rgb.rgbRed * kernel[dy + kHalf][dx + kHalf];
+					}
+					else {
+						newB += rgb.rgbBlue * kernel[dy + kHalf][dx + kHalf];
+						newG += rgb.rgbGreen * kernel[dy + kHalf][dx + kHalf];
+						newR += rgb.rgbRed * kernel[dy + kHalf][dx + kHalf];
+					}
 				}
 			}
-			RGBQUAD newRgb = {
+			if (isGray) {
+				/*char buf[100];
+				sprintf(buf, "newValue = %.2f", newValue);
+				AfxMessageBox(buf);*/
+				BYTE newGrayValue = (BYTE)min(max((int)newValue, 0), 255);
+				RGBQUAD newRgb = { newGrayValue, newGrayValue, newGrayValue, newGrayValue };	//Error: fourth value needs to be set!(GrayScale image)
+				SetPixel(pNewBmpFileBuf, x, y, newRgb);
+			}
+			else {
+				RGBQUAD newRgb = {
 				(BYTE)min(max((int)newB, 0), 255),
 				(BYTE)min(max((int)newG, 0), 255),
 				(BYTE)min(max((int)newR, 0), 255)
-			};
-			SetPixel(pNewBmpFileBuf, x, y, newRgb);
+				};
+				SetPixel(pNewBmpFileBuf, x, y, newRgb);
+			}
 		}
 	}
 
@@ -659,91 +679,217 @@ void CimageProcessingView::OnImageprocessSharpengrad() {
 	UpdateWindow();
 }
 
-//Canny edge detection
+
+struct Pixel {
+	int x;
+	int y;
+};
+
+// 创建一个队列来存储待拓展的像素点
+std::queue<Pixel> pixelQueue;
+
+//Canny edge detection		Limit:300x300!
 void CimageProcessingView::OnImageprocessCannyedge()
 {
 	if (pFileBuf == NULL) return;
 
-	//获取图像宽度和高度
+	//1. 高斯滤波
+	CimageProcessingView::OnImageprocessGausssmooth();
+	AfxMessageBox("高斯滤波完成");
+
 	int width = GetImageWidth(pFileBuf);
 	int height = GetImageHeight(pFileBuf);
+	int bpp = GetColorBits(pFileBuf);
 
-	//获取像素数据指针
-	char* imageData = GetDIBImageData(pFileBuf);
+	int sobelOperatorX[3][3] = { {-1, 0, 1}, {-2, 0, 2}, {-1, 0, 1} };
+	int sobelOperatorY[3][3] = { {1, 2, 1}, {0, 0, 0}, {-1, -2, -1} };
+	int gra_x[300][300] = { 0 };
+	int gra_y[300][300] = { 0 };
+	
+	//2. 计算dx、dy 得到梯度
+	double max_grad = 0.0;
+	for (int y = 1; y < height - 1; y++) {
+		for (int x = 1; x < width - 1; x++) {
+			int dx = 0;
+			int dy = 0;
+			// dx
+			for (int j = -1; j <= 1; j++) {
+				for (int i = -1; i <= 1; i++) {
+					RGBQUAD neighborPixel;
+					bool isGray;
+					GetPixel(pFileBuf, x + i, y + j, &neighborPixel, &isGray);
+					int grayValue = neighborPixel.rgbRed; // 灰度
 
-	//灰度化处理
-	char* grayImageData = new char[width * height];
-	for (int i = 0; i < width * height; i++) {
-		// 假设这里是简单的灰度化方法，将RGB值取平均作为灰度值
-		if (3 * i + 2 < width * height) { // 确保索引不会超出范围
-			// 假设这里是简单的灰度化方法，将RGB值取平均作为灰度值
-			grayImageData[i] = (imageData[3 * i] + imageData[3 * i + 1] + imageData[3 * i + 2]) / 3;
-		}
-		else {
-			// 处理越界情况，可以选择跳过该像素或者进行其他处理
-			// 这里简单地将灰度值设为0
-			grayImageData[i] = 0;
-		}
-	}
+					dx += grayValue * sobelOperatorX[j + 1][i + 1];
+				}
+			}
 
-	//Canny边缘检测处理
-	char* pNewImage = new char[width * height]; // 创建新的图像缓冲区
+			// dy
+			for (int j = -1; j <= 1; j++) {
+				for (int i = -1; i <= 1; i++) {
+					RGBQUAD neighborPixel;
+					bool isGray;
+					GetPixel(pFileBuf, x + i, y + j, &neighborPixel, &isGray);
+					int grayValue = neighborPixel.rgbRed; // 灰度
 
-	// Step 1: Compute gradient intensity and direction
-	float* gradientDirections = new float[width * height];
-	float* gradientMagnitudes = new float[width * height];
-	for (int i = 1; i < width - 1; i++) {
-		for (int j = 1; j < height - 1; j++) {
-			int dx = grayImageData[(j + 1) * width + i] - grayImageData[(j - 1) * width + i];
-			int dy = grayImageData[j * width + i + 1] - grayImageData[j * width + i - 1];
-			gradientMagnitudes[j * width + i] = sqrt(dx * dx + dy * dy);
-			gradientDirections[j * width + i] = atan2(dy, dx) * 180.0 / 3.141592653589793;
-		}
-	}
+					dy += grayValue * sobelOperatorY[j + 1][i + 1];
+				}
+			}
 
-	// Step 2: Non-maximum suppression
-	// 可以实现非极大值抑制来细化边缘
+			// 梯度gra:dx、dy,归一化
+			double gra = sqrt(dx * dx + dy * dy);
+			if (gra > max_grad) max_grad = gra;
 
-	// Step 3: Double thresholding
-	int lowThreshold = 50;
-	int highThreshold = 150;
-	for (int i = 0; i < width * height; i++) {
-		if (gradientMagnitudes[i] < lowThreshold) {//非边缘
-			pNewImage[i] = 0;
-		}
-		else if (gradientMagnitudes[i] > highThreshold) {//强边缘
-			pNewImage[i] = 255;
-		}
-		else {//弱边缘
-			pNewImage[i] = 200;
-			// 如果在两个阈值之间，根据连接性判断是否为边缘
-			// 这里可以实现双阈值处理
+			/*char buf[100];
+			sprintf(buf, "threshold = %.2f", gra);
+			AfxMessageBox(buf);*/
+			
+			gra_x[x][y] = dx;
+			gra_y[x][y] = dy;
 		}
 	}
 
-	// Step 4: Edge tracking by hysteresis
-	// 可以实现边缘跟踪来连接边缘
-	for (int i = 1; i < width - 1; i++) {
-		for (int j = 1; j < height - 1; j++) {
-			if (pNewImage[j * width + i] == 255) {
-				if (pNewImage[(j - 1) * width + i - 1] == 0 || pNewImage[(j - 1) * width + i] == 0 || pNewImage[(j - 1) * width + i + 1] == 0 ||
-					pNewImage[j * width + i - 1] == 0 || pNewImage[j * width + i + 1] == 0 ||
-					pNewImage[(j + 1) * width + i - 1] == 0 || pNewImage[(j + 1) * width + i] == 0 || pNewImage[(j + 1) * width + i + 1] == 0) {
-					pNewImage[j * width + i] = 0;
+	//3. 得到梯度方向的两个像素点，比较，决定是否保留中心点s
+	for (int y = 1; y < height - 1; y++) {
+		for (int x = 1; x < width - 1; x++) {
+			
+			double angle = atan2(gra_x[x][y], gra_y[x][y]);
+
+			int x1 = x + cos(angle);
+			int y1 = y + sin(angle);
+
+			int x2 = x - cos(angle);
+			int y2 = y - sin(angle);
+
+			double gra0 = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
+			double gra1 = sqrt(gra_x[x1][y1] * gra_x[x1][y1] + gra_y[x1][y1] * gra_y[x1][y1]);
+			double gra2 = sqrt(gra_x[x2][y2] * gra_x[x2][y2] + gra_y[x2][y2] * gra_y[x2][y2]);
+			if (x1 >= 0 && x1 < width && y1 >= 0 && y1 < height) {
+				if (gra0 < gra1) gra_x[x][y] = gra_y[x][y] = 0;
+			}
+			if (x2 >= 0 && x2 < width && y2 >= 0 && y2 < height) {
+				if (gra0 < gra2) gra_x[x][y] = gra_y[x][y] = 0;
+			}
+		}
+	}
+
+	//4. 得到图像2，读入阈值，对图像1和图像2分别作阈值处理
+	int imageSize = width * height * sizeof(RGBQUAD);
+	char* pFileBuf2 = new char[width * height * (bpp / 8)];
+	memcpy(pFileBuf2, pFileBuf, width * height * (bpp / 8));
+
+	double th1=0.1, th2=0.3;
+	CannyEdgeDlg dlg;
+	if (dlg.DoModal() == IDOK) {
+		th2 = dlg.th2;
+		th1 = dlg.th1;
+	}
+	//th1 = 0.4 * th2;
+
+	//图像1
+	//RGBQUAD rgb0 = { 0,0,0,0 };
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			double grad = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
+			if (grad/max_grad < th1) {
+				RGBQUAD rgb;
+				bool isGray;
+				long offset = GetPixel(pFileBuf, x, y, &rgb, &isGray);
+				rgb.rgbReserved = 0;
+				SetPixel(pFileBuf, x, y, rgb);
+			}
+		}
+	}
+
+	/*Invalidate();
+	UpdateWindow();
+	AfxMessageBox("图像1");*/
+	
+	//图像2
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			double grad = sqrt(gra_x[x][y] * gra_x[x][y] + gra_y[x][y] * gra_y[x][y]);
+			if (grad/max_grad < th2) {
+				RGBQUAD rgb;
+				bool isGray;
+				long offset = GetPixel(pFileBuf2, x, y, &rgb, &isGray);
+				rgb.rgbReserved = 0;
+				SetPixel(pFileBuf2, x, y, rgb);
+			}
+		}
+	}
+
+	/*char* tmp = pFileBuf;
+	pFileBuf = pFileBuf2;
+	Invalidate();
+	UpdateWindow();
+	AfxMessageBox("图像2");
+	pFileBuf = tmp;*/
+
+	//5. 边缘链接
+	bool checked[300][300] = {0};
+	int stepx[8] = { -1,0,1,-1,1,-1,0,1 };
+	int stepy[8] = { -1,-1,-1,0,0,1,1,1 };
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			//已经拓展过
+			if (checked[x][y]) continue;
+			
+			//如果图2中是边缘点，开始拓展
+			RGBQUAD rgb2;
+			bool isGray;
+			long offset = GetPixel(pFileBuf, x, y, &rgb2, &isGray);
+			if (rgb2.rgbReserved == 0) continue;
+			//DFS(x, y, pFileBuf, pFileBuf2);
+			
+			//创建一个队列v，队列中元素是一对int值
+			//初始化，(x,y)入队 
+			Pixel startPixel = { x, y };
+			pixelQueue.push(startPixel);
+
+			int xx = -1, yy = -1;
+
+			//DFS
+			while (!pixelQueue.empty()) {
+				//取出队首元素赋值给xx和yy
+				Pixel currentPixel = pixelQueue.front();
+				pixelQueue.pop();
+
+				int xx = currentPixel.x;
+				int yy = currentPixel.y;
+
+				checked[xx][yy] = true;
+
+				//向八个方向拓展
+				for (int st = 0; st < 8; st++) {
+					int gox = xx + stepx[st];
+					int goy = yy + stepy[st];
+					if (checked[gox][goy]) continue;
+					
+					//如果它在图2中本身是边缘点那就不管了，之后会拓展的
+					RGBQUAD rgb2;
+					bool isGray;
+					GetPixel(pFileBuf, x, y, &rgb2, &isGray);
+					if (rgb2.rgbReserved != 0) continue;
+
+					//取出图1中的点值，如果不为0，说明需要拓展
+					RGBQUAD rgb1;
+					GetPixel(pFileBuf, x, y, &rgb1, &isGray);
+					if (rgb1.rgbReserved == 0) continue;
+
+					//拓展！
+					SetPixel(pFileBuf2, gox, goy, rgb1);
+					//增加入队代码,将gox、goy入队
+					Pixel newPixel = { gox, goy };
+					pixelQueue.push(newPixel);
 				}
 			}
 		}
-}
+	}
 
-	// 释放动态分配的内存
-	delete[] grayImageData;
-	delete[] gradientDirections;
-	delete[] gradientMagnitudes;
-
-	//释放旧的图像缓冲区，使用新的中值滤波处理后的图像数据
+	//释放旧的图像缓冲区，使用新的图像数据
 	delete[] pFileBuf;
-	pFileBuf = pNewImage;
-
+	pFileBuf = pFileBuf2;
 	Invalidate();
 	UpdateWindow();
 }

@@ -13,6 +13,7 @@
 #define INTERPOL_DLG                    318
 #define IDD_DIALOG2                     320
 #define SHARPEN_DLG                     322
+#define CANNY_EDGE                      324
 #define PixelX                          1001
 #define PixelY                          1002
 #define IDC_EDIT1                       1002
@@ -30,6 +31,8 @@
 #define INTER_HEIGHT                    1008
 #define SHARPEN_K1                      1009
 #define SHARPEN_K2                      1010
+#define TH1                             1011
+#define TH2                             1012
 #define ID_IMAGEPROCESSING_OPENABMPFILE 32771
 #define ID_IMAGEPROCESSING_SAVETONEWBMP 32772
 #define ID_IMAGEPROCESSING_DISPLAYBMPFILEHEADER 32773
@@ -63,9 +66,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        324
+#define _APS_NEXT_RESOURCE_VALUE        326
 #define _APS_NEXT_COMMAND_VALUE         32799
-#define _APS_NEXT_CONTROL_VALUE         1011
+#define _APS_NEXT_CONTROL_VALUE         1013
 #define _APS_NEXT_SYMED_VALUE           310
 #endif
 #endif
